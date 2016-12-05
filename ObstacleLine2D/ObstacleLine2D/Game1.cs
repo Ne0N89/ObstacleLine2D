@@ -19,10 +19,12 @@ namespace ObstacleLine2D
         GraphicsDeviceManager graphics;
         SpriteBatch spriteBatch;
 
+        Song mainSound; // Песня меню
+
         Scrolling scrolling1;
         Scrolling scrolling2;
 
-        enum GameState
+        enum GameState // Состояние 
         {
             MainMenu,
             SingleGame,
@@ -38,6 +40,10 @@ namespace ObstacleLine2D
         //Машинка
         Texture2D Car2D;
         Rectangle CarRect;
+
+        //Траффик
+        List<Traffic> traffic = new List<Traffic>();
+        Random rand = new Random();
 
         public Game1()
         {
@@ -67,10 +73,16 @@ namespace ObstacleLine2D
             ExitBtn = new cButton(Content.Load<Texture2D>("Content/ExitGame"), graphics.GraphicsDevice);
             ExitBtn.setPosition(new Vector2(145, 620));
             Car2D = Content.Load<Texture2D>("Content/car3");
-            CarRect = new Rectangle(300,600,83,162);
+            CarRect = new Rectangle(300,600,162,83);
+            //Загрузка фона
             scrolling1 = new Scrolling (Content.Load<Texture2D>("Content/GameBack"), new Rectangle(0, 0, graphics.PreferredBackBufferWidth, graphics.PreferredBackBufferHeight));
-            //scrolling2 = new Scrolling(Content.Load<Texture2D>("Content/GameBack2"), new Rectangle(0, graphics.PreferredBackBufferHeight, graphics.PreferredBackBufferWidth, graphics.PreferredBackBufferHeight));
-
+            scrolling2 = new Scrolling(Content.Load<Texture2D>("Content/GameBack2"), new Rectangle(graphics.PreferredBackBufferWidth, 0, graphics.PreferredBackBufferWidth, graphics.PreferredBackBufferHeight));
+            //Загрузка музыки
+            mainSound = Content.Load<Song>("Content/MainSound");
+            if (CurrentGameState == GameState.MainMenu)
+                MediaPlayer.Play(mainSound);
+            /*if (CurrentGameState == GameState.SingleGame)
+                MediaPlayer.Stop(mainSound);*/
         }
 
         protected override void UnloadContent()
@@ -78,6 +90,7 @@ namespace ObstacleLine2D
 
         }
 
+        float spawntraffic = 0;
         protected override void Update(GameTime gameTime)
         {
             KeyboardState keyboard = Keyboard.GetState();
@@ -96,7 +109,7 @@ namespace ObstacleLine2D
                 case GameState.SingleGame:
                     if (keyboard.IsKeyDown(Keys.Escape)) CurrentGameState = GameState.MainMenu;
 
-                    //Управоение машинкой
+                    //Управление машинкой
                     if (keyboard.IsKeyDown(Keys.Right))
                         CarRect.X += 8;
                     if (keyboard.IsKeyDown(Keys.Left))
@@ -114,19 +127,89 @@ namespace ObstacleLine2D
                     if (CarRect.Y <= 0) CarRect.Y = 0;
                     if (CarRect.Y + Car2D.Height >= graphics.PreferredBackBufferHeight)
                         CarRect.Y = graphics.PreferredBackBufferHeight - Car2D.Height;
-                    
-                    //Движение фона
 
+                    //Траффик
+                    spawntraffic += (float)gameTime.ElapsedGameTime.TotalSeconds;
+                    foreach (Traffic trafic in traffic)
+                        trafic.Update(graphics.GraphicsDevice);
+
+                    LoadTraffic();
+
+
+
+                    //Движение фона
+                    if (scrolling1.rect.X + scrolling1.texture.Width <= 0)
+                        scrolling1.rect.X = scrolling2.rect.X + scrolling2.texture.Width;
+                    if (scrolling2.rect.X + scrolling2.texture.Width <= 0)
+                        scrolling2.rect.X = scrolling1.rect.X + scrolling2.texture.Width;
+
+                    scrolling1.Update();
+                    scrolling2.Update();
 
                     break;
 
                 case GameState.MultiGame:
+                    //Движение фона
+                    if (scrolling1.rect.X + scrolling1.texture.Width <= 0)
+                        scrolling1.rect.X = scrolling2.rect.X + scrolling2.texture.Width;
+                    if (scrolling2.rect.X + scrolling2.texture.Width <= 0)
+                        scrolling2.rect.X = scrolling1.rect.X + scrolling2.texture.Width;
+
+                    scrolling1.Update();
+                    scrolling2.Update();
+
+                    //Траффик
+                    spawntraffic += (float)gameTime.ElapsedGameTime.TotalSeconds;
+                    foreach (Traffic trafic in traffic)
+                        trafic.Update(graphics.GraphicsDevice);
+
+                    LoadTraffic();
+
+                    //Управление машинкой
+                    if (keyboard.IsKeyDown(Keys.Right))
+                        CarRect.X += 8;
+                    if (keyboard.IsKeyDown(Keys.Left))
+                        CarRect.X -= 8;
+                    if (keyboard.IsKeyDown(Keys.Up))
+                        CarRect.Y -= 8;
+                    if (keyboard.IsKeyDown(Keys.Down))
+                        CarRect.Y += 8;
+
+                    //Границы экрана
+                    if (CarRect.X <= 0) CarRect.X = 0;
+                    if (CarRect.X + Car2D.Width >= graphics.PreferredBackBufferWidth)
+                        CarRect.X = graphics.PreferredBackBufferWidth - Car2D.Width;
+
+                    if (CarRect.Y <= 0) CarRect.Y = 0;
+                    if (CarRect.Y + Car2D.Height >= graphics.PreferredBackBufferHeight)
+                        CarRect.Y = graphics.PreferredBackBufferHeight - Car2D.Height;
 
                     break;
 
             }
 
             base.Update(gameTime);
+        }
+
+        public void LoadTraffic()
+        {
+
+
+            int randY = rand.Next(30, 600);
+
+            if (spawntraffic >= 1)
+            {
+                spawntraffic = 0;
+                if (traffic.Count() < 4)
+                    traffic.Add(new Traffic(Content.Load<Texture2D>("Content/Mini_truck"), new Vector2(graphics.PreferredBackBufferWidth + 3, randY)));
+            }
+
+            for (int i = 0; i < traffic.Count; i++)
+                if (!traffic[i].isVisible)
+                {
+                    traffic.RemoveAt(i);
+                    i--;
+                }
         }
 
         protected override void Draw(GameTime gameTime)
@@ -146,13 +229,23 @@ namespace ObstacleLine2D
                     break;
 
                 case GameState.SingleGame:
-                    //scrolling2.Draw(spriteBatch);
+                    //Отрисовка фона
                     scrolling1.Draw(spriteBatch);
+                    scrolling2.Draw(spriteBatch);
+                    //Отрисовка траффика
+                    foreach (Traffic trafic in traffic)
+                        trafic.Draw(spriteBatch);
                     spriteBatch.Draw(Car2D, CarRect, Color.White);
                     break;
 
                 case GameState.MultiGame:
-
+                    //Отрисовка фона
+                    scrolling1.Draw(spriteBatch);
+                    scrolling2.Draw(spriteBatch);
+                    //Отрисовка траффика
+                    foreach (Traffic trafic in traffic)
+                        trafic.Draw(spriteBatch);
+                    spriteBatch.Draw(Car2D, CarRect, Color.White);
                     break;
 
             }

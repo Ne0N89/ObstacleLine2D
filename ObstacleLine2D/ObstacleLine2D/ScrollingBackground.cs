@@ -26,7 +26,7 @@ namespace ObstacleLine2D
             }
             public void Update()
             {
-                rect.Y += 3;
+                rect.X -= 3;
             }
         }
 }
